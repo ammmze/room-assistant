@@ -55,6 +55,7 @@
     "command-line-usage": "^6.1.0",
     "config": "^3.3.1",
     "democracy": "^3.1.3",
+    "dnssd2": "^1.0.0",
     "github-sponsors": "^1.0.1",
     "js-yaml": "^3.14.0",
     "kalmanjs": "^1.1.0",

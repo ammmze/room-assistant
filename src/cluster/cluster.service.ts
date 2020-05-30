@@ -6,22 +6,13 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import Democracy, { Node } from 'democracy';
-import { Advertisement, Browser, Service } from 'mdns';
+import { Advertisement, Browser, Service, udp } from 'dnssd2';
 import _ from 'lodash';
 import * as os from 'os';
 import { NetworkInterfaceInfo } from 'os';
 import { ConfigService } from '../config/config.service';
 import { ClusterConfig } from './cluster.config';
 import { makeId } from '../util/id';
-import { getAddrInfoDig } from './resolvers';
-
-let mdns;
-try {
-  mdns = require('mdns');
-} catch (e) {
-  Logger.error(e.message, e.stack, 'ClusterService');
-  mdns = undefined;
-}
 
 @Injectable()
 export class ClusterService extends Democracy
@@ -76,18 +67,12 @@ export class ClusterService extends Democracy
    */
   onApplicationBootstrap(): void {
     if (this.config.autoDiscovery) {
-      if (mdns !== undefined) {
-        try {
-          this.startBonjourDiscovery();
-        } catch (e) {
-          this.logger.error(
-            `Failed to start mdns discovery (${e.message})`,
-            e.stack
-          );
-        }
-      } else {
-        this.logger.warn(
-          'Dependency "mdns" was not found, automatic discovery has been disabled. You will have to provide the addresses of other room-assistant nodes manually in the config.'
+      try {
+        this.startBonjourDiscovery();
+      } catch (e) {
+        this.logger.error(
+          `Failed to start mdns discovery (${e.message}). Automatic discovery may not function. You may need to provide the addresses of other room-assistant nodes manually in the config.`,
+          e.stack
         );
       }
     }
@@ -176,33 +161,23 @@ export class ClusterService extends Democracy
    * Starts advertising and browsing for room-assistant services using MDNS.
    */
   protected startBonjourDiscovery(): void {
-    this.advertisement = mdns.createAdvertisement(
-      mdns.udp('room-assistant'),
-      this.config.port,
-      {
-        networkInterface: this.config.networkInterface,
-      }
-    );
-    const defaultGetAddr =
-      'DNSServiceGetAddrInfo' in mdns.dns_sd
-        ? mdns.rst.DNSServiceGetAddrInfo()
-        : mdns.rst.getaddrinfo({ families: [0] });
-    const sequence = [
-      mdns.rst.DNSServiceResolve(),
-      process.env.NODE_DIG_RESOLVER ? getAddrInfoDig : defaultGetAddr,
-      mdns.rst.makeAddressesUnique(),
-    ];
-    this.browser = mdns.createBrowser(mdns.udp('room-assistant'), {
-      resolverSequence: sequence,
-    });
-    this.browser.on('serviceUp', this.handleNodeDiscovery.bind(this));
-    this.browser.on('error', (e) => {
-      this.logger.error(e.message, e.trace);
-    });
-
     this.logger.log('Starting mDNS advertisements and discovery');
-    this.advertisement.start();
-    this.browser.start();
+    this.advertisement = new Advertisement(
+      udp('_room-assistant'),
+      this.config.port,
+      { interface: this.config.networkInterface }
+    )
+      .on('error', (e) => {
+        this.logger.error(e.message, e.trace);
+      })
+      .start();
+
+    this.browser = new Browser(udp('_room-assistant'))
+      .on('serviceUp', this.handleNodeDiscovery.bind(this))
+      .on('error', (e) => {
+        this.logger.error(e.message, e.trace);
+      })
+      .start();
   }
 
   /**

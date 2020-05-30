@@ -18,4 +18,4 @@ COPY --from=build /usr/local/lib/node_modules/room-assistant /usr/local/lib/node
 
 ENTRYPOINT ["tini", "--", "room-assistant"]
 CMD ["--digResolver"]
-HEALTHCHECK --start-period=15s CMD curl --fail http://localhost:6415/status/ || exit 1
+HEALTHCHECK --start-period=15s CMD curl --fail http://localhost:${LISTEN_PORT:-6415}/status/ || exit 1

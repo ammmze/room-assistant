@@ -13,3 +13,20 @@ services:
             "integrations": []
           }
         }
+  room-assistant2:
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+    network_mode: host
+    environment:
+      LISTEN_PORT: 6416
+      NODE_CONFIG: >
+        {
+          "global": {
+            "instanceName": "dev-instance2",
+            "integrations": []
+          },
+          "cluster": {
+            "port": 6426
+          }
+        }
